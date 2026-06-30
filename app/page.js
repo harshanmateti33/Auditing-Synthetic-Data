@@ -293,8 +293,11 @@ export default function Page() {
         body: JSON.stringify({
           run_id: result.run_id,
           actions: selectedActions,
-          // Send full previous result so the backend doesn't need MongoDB
-          prevResult: { ...result, csvText: lastCsvText },
+          // Pass only what repair needs — avoids large object + MongoDB dependency
+          csvText: lastCsvText,
+          prevMetrics: result.metrics,
+          prevTrust: result.trust,
+          prevDatasetName: result.datasetName,
         }),
       });
       const data = await res.json();

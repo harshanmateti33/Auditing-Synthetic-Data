@@ -581,12 +581,20 @@ async function handlePOST(request, pathParts) {
         return NextResponse.json(result)
     }
         if (pathParts[0] === 'repair') {
-        const { run_id, actions } = body
-        if (!run_id || !actions) return NextResponse.json({ error: 'run_id and actions required' }, { status: 400 })
+        const { run_id, actions, csvText, prevMetrics, prevTrust, prevDatasetName } = body
+        if (!actions || !actions.length) return NextResponse.json({ error: 'actions required' }, { status: 400 })
         
-        // Use body.prevResult if supplied (no-DB path); only query DB as fallback
-        let prev = body.prevResult || null
-        if (!prev) {
+        // Build prev directly from body fields — no DB or prevResult object needed
+        let prev = null
+        if (csvText && prevMetrics) {
+            prev = {
+                csvText,
+                metrics: prevMetrics,
+                trust: prevTrust || {},
+                datasetName: prevDatasetName || 'dataset.csv'
+            }
+        } else {
+            // Last resort: try DB if somehow body fields are missing
             try {
                 const db = await getDb()
                 const dbResult = await db.collection('runs').findOne({ run_id })
@@ -595,7 +603,7 @@ async function handlePOST(request, pathParts) {
                 console.warn('MongoDB unavailable for repair lookup:', dbErr.message)
             }
         }
-        if (!prev) return NextResponse.json({ error: 'run not found and no prevResult supplied' }, { status: 404 })
+        if (!prev) return NextResponse.json({ error: 'repair data missing: csvText and prevMetrics required' }, { status: 400 })
         
         let result;
         try {
