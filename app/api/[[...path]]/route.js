@@ -584,13 +584,16 @@ async function handlePOST(request, pathParts) {
         const { run_id, actions } = body
         if (!run_id || !actions) return NextResponse.json({ error: 'run_id and actions required' }, { status: 400 })
         
-        // Try to load previous run from DB; fall back to body-supplied metrics if unavailable
+        // Use body.prevResult if supplied (no-DB path); only query DB as fallback
         let prev = body.prevResult || null
-        try {
-            const db = await getDb()
-            prev = await db.collection('runs').findOne({ run_id })
-        } catch (dbErr) {
-            console.warn('MongoDB unavailable for repair lookup:', dbErr.message)
+        if (!prev) {
+            try {
+                const db = await getDb()
+                const dbResult = await db.collection('runs').findOne({ run_id })
+                if (dbResult) prev = dbResult
+            } catch (dbErr) {
+                console.warn('MongoDB unavailable for repair lookup:', dbErr.message)
+            }
         }
         if (!prev) return NextResponse.json({ error: 'run not found and no prevResult supplied' }, { status: 404 })
         
