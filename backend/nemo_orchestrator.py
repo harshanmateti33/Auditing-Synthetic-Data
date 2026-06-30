@@ -1,8 +1,10 @@
 # backend/nemo_orchestrator.py
+import os
 import time
 import math
 import requests
 import numpy as np
+from concurrent.futures import ThreadPoolExecutor
 from metrics import (
     infer_columns,
     agent_coverage,
@@ -11,6 +13,9 @@ from metrics import (
     agent_utility,
     agent_robustness,
 )
+
+# Read NVIDIA API key from environment variable (set in Render dashboard)
+NVIDIA_API_KEY = os.environ.get("NVIDIA_API_KEY", "")
 
 def aggregate_trust(metrics):
     w = {"privacy": 0.25, "fairness": 0.20, "fidelity": 0.20, "utility": 0.25, "robustness": 0.10}
@@ -39,7 +44,7 @@ def intent_router_nim(columns, dataset_name):
         res = requests.post(
             "https://integrate.api.nvidia.com/v1/chat/completions",
             headers={
-                "Authorization": "Bearer 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",
+                "Authorization": f"Bearer {NVIDIA_API_KEY}",
                 "Content-Type": "application/json"
             },
             json={
@@ -51,7 +56,7 @@ def intent_router_nim(columns, dataset_name):
                 "temperature": 0.2,
                 "max_tokens": 100
             },
-            timeout=8.0
+            timeout=3.0
         )
         if res.status_code == 200:
             return res.json()["choices"][0]["message"]["content"].strip()
@@ -60,7 +65,7 @@ def intent_router_nim(columns, dataset_name):
         pass
     return "Domain: Generic. Routing execution plan: Privacy, Fairness, and Utility agents activated."
 
-def policy_decision_nim(metrics, trust_score):
+def policy_decision_local(metrics, trust_score):
     checks = [
         {"name": "privacy_score > 0.85", "passed": bool(metrics["privacy"]["score"] > 0.85), "value": metrics["privacy"]["score"], "threshold": 0.85},
         {"name": "fairness_score > 0.90", "passed": bool(metrics["fairness"]["score"] > 0.90), "value": metrics["fairness"]["score"], "threshold": 0.90},
@@ -75,15 +80,22 @@ def policy_decision_nim(metrics, trust_score):
         decision = "REJECT"
     elif passed < len(checks):
         decision = "CONDITIONAL" if trust_score > 0.88 else "REPAIR"
+        
+    return {
+        "decision": decision,
+        "checks": checks,
+        "passed_count": passed,
+        "total_count": len(checks)
+    }
 
+def policy_justification_nim_call(metrics, trust_score, decision):
     justification = "Automated compliance metrics validation concluded."
-
     print("[NVIDIA NIM API] Calling Policy Agent (NeMo Guardrails evaluation reasoning) via model 'meta/llama-3.1-nemotron-70b-instruct' on NVIDIA Cloud Catalog API...")
     try:
         res = requests.post(
             "https://integrate.api.nvidia.com/v1/chat/completions",
             headers={
-                "Authorization": "Bearer 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",
+                "Authorization": f"Bearer {NVIDIA_API_KEY}",
                 "Content-Type": "application/json"
             },
             json={
@@ -95,21 +107,14 @@ def policy_decision_nim(metrics, trust_score):
                 "temperature": 0.2,
                 "max_tokens": 100
             },
-            timeout=8.0
+            timeout=3.0
         )
         if res.status_code == 200:
             justification = res.json()["choices"][0]["message"]["content"].strip()
     except Exception as e:
         print(f"[TrustForge] Policy Guardrails NIM call failed: {e}")
         pass
-
-    return {
-        "decision": decision,
-        "checks": checks,
-        "passed_count": passed,
-        "total_count": len(checks),
-        "justification": justification
-    }
+    return justification
 
 def remediation_advisor_nim(suggested_repair):
     print("[NVIDIA NIM API] Calling Repair Agent via model 'meta/llama-3.1-nemotron-70b-instruct' on NVIDIA Cloud Catalog API...")
@@ -117,7 +122,7 @@ def remediation_advisor_nim(suggested_repair):
         res = requests.post(
             "https://integrate.api.nvidia.com/v1/chat/completions",
             headers={
-                "Authorization": "Bearer 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",
+                "Authorization": f"Bearer {NVIDIA_API_KEY}",
                 "Content-Type": "application/json"
             },
             json={
@@ -129,7 +134,7 @@ def remediation_advisor_nim(suggested_repair):
                 "temperature": 0.3,
                 "max_tokens": 100
             },
-            timeout=8.0
+            timeout=3.0
         )
         if res.status_code == 200:
             return res.json()["choices"][0]["message"]["content"].strip()
@@ -149,58 +154,73 @@ def run_nemo_orchestration(df, dataset_name):
             "message": msg
         })
 
-    # Step 1: Intent Router Agent (NeMo / Nemotron NIM)
-    log_event(f"Dataset loaded: {len(df)} rows × {len(columns)} columns", "IntentRouter")
-    router_decision = intent_router_nim(columns, dataset_name)
-    log_event(router_decision, "IntentRouter")
+    # Start Phase 1: Parallelize Intent Router call with main thread metrics evaluations
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        log_event(f"Dataset loaded: {len(df)} rows × {len(columns)} columns", "IntentRouter")
+        
+        # Submit intent router to run in background thread
+        router_future = executor.submit(intent_router_nim, columns, dataset_name)
+        
+        # Compute metrics sequentially on the main thread (they are CPU-bound pandas tasks)
+        coverage = agent_coverage(df, columns)
+        log_event(f"Coverage Agent completed. Score: {coverage['score']:.3f}", "CoverageAgent")
 
-    # Step 2-4: Parallel evaluators (RAPIDS cuDF)
-    coverage = agent_coverage(df, columns)
-    log_event(f"Coverage Agent completed. Score: {coverage['score']:.3f}", "CoverageAgent")
+        privacy = agent_privacy(df, columns)
+        log_event(f"Privacy Agent completed. Score: {privacy['score']:.3f}. Detected PII columns: {len(privacy['pii_columns'])}", "PrivacyAgent")
 
-    privacy = agent_privacy(df, columns)
-    log_event(f"Privacy Agent completed. Score: {privacy['score']:.3f}. Detected PII columns: {len(privacy['pii_columns'])}", "PrivacyAgent")
+        fairness = agent_fairness(df, columns)
+        log_event(f"Fairness Agent completed. Score: {fairness['score']:.3f}. Protected field: '{fairness['protected_attribute']}'", "FairnessAgent")
 
-    fairness = agent_fairness(df, columns)
-    log_event(f"Fairness Agent completed. Score: {fairness['score']:.3f}. Protected field: '{fairness['protected_attribute']}'", "FairnessAgent")
+        utility = agent_utility(df, columns)
+        log_event(f"Utility Agent completed. Score (F1): {utility['score']:.3f} using downstream RF classifier.", "UtilityAgent")
 
-    # Step 5: Utility Agent (RAPIDS cuML RF)
-    utility = agent_utility(df, columns)
-    log_event(f"Utility Agent completed. Score (F1): {utility['score']:.3f} using downstream RF classifier.", "UtilityAgent")
+        robustness = agent_robustness(df, columns)
+        log_event(f"Robustness Agent completed. Accuracy degradation: {robustness['accuracy_degradation']:.3f}", "RobustnessAgent")
 
-    # Step 6: Robustness Agent
-    robustness = agent_robustness(df, columns)
-    log_event(f"Robustness Agent completed. Accuracy degradation: {robustness['accuracy_degradation']:.3f}", "RobustnessAgent")
+        # Resolve the intent router background task
+        router_decision = router_future.result()
+        log_event(router_decision, "IntentRouter")
 
-    # Step 7: Trust Aggregator Agent
-    metrics = {"coverage": coverage, "privacy": privacy, "fairness": fairness, "utility": utility, "robustness": robustness}
-    trust = aggregate_trust(metrics)
-    log_event(f"Trust Aggregated: τ = {trust['trust_score']:.3f}", "TrustAggregationAgent")
+        # Step 7: Trust Aggregator Agent
+        metrics = {"coverage": coverage, "privacy": privacy, "fairness": fairness, "utility": utility, "robustness": robustness}
+        trust = aggregate_trust(metrics)
+        log_event(f"Trust Aggregated: τ = {trust['trust_score']:.3f}", "TrustAggregationAgent")
 
-    # Step 8: Policy Agent (NeMo Guardrails via NIM)
-    policy = policy_decision_nim(metrics, trust["trust_score"])
-    log_event(f"Policy compliance checklist run. Final decision: {policy['decision']}. Justification: {policy['justification']}", "PolicyAgent")
+        # Step 8: Policy Agent - calculate decision locally first
+        policy = policy_decision_local(metrics, trust["trust_score"])
+        
+        # Generate suggested repair loop targets
+        suggested_repair = []
+        if len(privacy["pii_columns"]) > 0:
+            suggested_repair.append("mask_pii")
+        if privacy["nndr"] < 0.90 or privacy["replica_rate"] > 0.01:
+            suggested_repair.append("dp_noise")
+        if fairness["spd"] > 0.10:
+            suggested_repair.append("balance_minority")
+        if any(p["type"] != "identifier_heuristic" for p in privacy["pii_columns"]):
+            suggested_repair.append("drop_leaky")
 
-    # Generate suggested repair loop targets
-    suggested_repair = []
-    if len(privacy["pii_columns"]) > 0:
-        suggested_repair.append("mask_pii")
-    if privacy["nndr"] < 0.90 or privacy["replica_rate"] > 0.01:
-        suggested_repair.append("dp_noise")
-    if fairness["spd"] > 0.10:
-        suggested_repair.append("balance_minority")
-    if any(p["type"] != "identifier_heuristic" for p in privacy["pii_columns"]):
-        suggested_repair.append("drop_leaky")
-
-    # Step 9: Repair Agent (NIM remediation guidance)
-    if policy["decision"] in ["REPAIR", "REJECT"] and len(suggested_repair) > 0:
-        remediation_text = remediation_advisor_nim(suggested_repair)
-        log_event(f"Remediation checklist suggested by Repair Agent: {remediation_text}", "RepairAgent")
+        # Start Phase 2: Parallelize final LLM calls (justification, optional remediation guidance, certification narrative)
+        justification_future = executor.submit(policy_justification_nim_call, metrics, trust["trust_score"], policy["decision"])
+        
+        remediation_future = None
+        if policy["decision"] in ["REPAIR", "REJECT"] and len(suggested_repair) > 0:
+            remediation_future = executor.submit(remediation_advisor_nim, suggested_repair)
+            
+        narrative_future = executor.submit(generate_nim_narrative, trust["trust_score"], policy["decision"], len(privacy["pii_columns"]), fairness["protected_attribute"])
+        
+        # Collect parallel call results
+        justification = justification_future.result()
+        policy["justification"] = justification
+        log_event(f"Policy compliance checklist run. Final decision: {policy['decision']}. Justification: {policy['justification']}", "PolicyAgent")
+        
+        if remediation_future:
+            remediation_text = remediation_future.result()
+            log_event(f"Remediation checklist suggested by Repair Agent: {remediation_text}", "RepairAgent")
+            
+        narrative = narrative_future.result()
 
     latency_ms = int((time.time() - t0) * 1000)
-
-    # Step 10: Certification Agent (NIM text summary narrative)
-    narrative = generate_nim_narrative(trust["trust_score"], policy["decision"], len(privacy["pii_columns"]), fairness["protected_attribute"])
 
     # Preview rows
     pdf = df.to_pandas() if hasattr(df, 'to_pandas') else df
@@ -238,7 +258,7 @@ def generate_nim_narrative(trust_score, decision, pii_count, protected_attr):
                 "temperature": 0.5,
                 "max_tokens": 150
             },
-            timeout=8.0
+            timeout=3.0
         )
         if res.status_code == 200:
             return res.json()["choices"][0]["message"]["content"].strip()
