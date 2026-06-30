@@ -1,0 +1,1277 @@
+// import Image from "next/image";
+
+// export default function Home() {
+//   return (
+//     <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
+//       <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
+//         <Image
+//           className="dark:invert"
+//           src="/next.svg"
+//           alt="Next.js logo"
+//           width={100}
+//           height={20}
+//           priority
+//         />
+//         <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
+//           <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
+//             To get started, edit the page.js file.
+//           </h1>
+//           <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
+//             Looking for a starting point or more instructions? Head over to{" "}
+//             <a
+//               href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
+//               className="font-medium text-zinc-950 dark:text-zinc-50"
+//             >
+//               Templates
+//             </a>{" "}
+//             or the{" "}
+//             <a
+//               href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
+//               className="font-medium text-zinc-950 dark:text-zinc-50"
+//             >
+//               Learning
+//             </a>{" "}
+//             center.
+//           </p>
+//         </div>
+//         <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
+//           <a
+//             className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
+//             href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
+//             target="_blank"
+//             rel="noopener noreferrer"
+//           >
+//             <Image
+//               className="dark:invert"
+//               src="/vercel.svg"
+//               alt="Vercel logomark"
+//               width={16}
+//               height={16}
+//             />
+//             Deploy Now
+//           </a>
+//           <a
+//             className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
+//             href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
+//             target="_blank"
+//             rel="noopener noreferrer"
+//           >
+//             Documentation
+//           </a>
+//         </div>
+//       </main>
+//     </div>
+//   );
+// }
+
+"use client";
+
+import { useState, useEffect, useRef } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Separator } from "@/components/ui/separator";
+import { Checkbox } from "@/components/ui/checkbox";
+import { toast } from "sonner";
+import {
+  Radar,
+  RadarChart,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+} from "recharts";
+import {
+  Upload,
+  FileText,
+  Shield,
+  Scale,
+  Beaker,
+  Zap,
+  Award,
+  Cpu,
+  Activity,
+  CheckCircle2,
+  XCircle,
+  AlertTriangle,
+  Wrench,
+  Sparkles,
+  FileSearch,
+  Play,
+  RotateCcw,
+  Download,
+  Database,
+  Lock,
+  Users,
+  Brain,
+  ShieldAlert,
+} from "lucide-react";
+
+const AGENT_FLOW = [
+  {
+    id: "IntentRouter",
+    label: "Intent Router",
+    icon: FileSearch,
+    color: "text-blue-400",
+  },
+  {
+    id: "CoverageAgent",
+    label: "Coverage Agent",
+    icon: Database,
+    color: "text-cyan-400",
+  },
+  {
+    id: "PrivacyAgent",
+    label: "Privacy Agent",
+    icon: Lock,
+    color: "text-emerald-400",
+  },
+  {
+    id: "FairnessAgent",
+    label: "Fairness Agent",
+    icon: Scale,
+    color: "text-purple-400",
+  },
+  {
+    id: "UtilityAgent",
+    label: "Utility Agent",
+    icon: Beaker,
+    color: "text-amber-400",
+  },
+  {
+    id: "RobustnessAgent",
+    label: "Robustness Agent",
+    icon: Zap,
+    color: "text-rose-400",
+  },
+  {
+    id: "TrustAggregationAgent",
+    label: "Trust Aggregator",
+    icon: Brain,
+    color: "text-fuchsia-400",
+  },
+  {
+    id: "PolicyAgent",
+    label: "Policy Agent",
+    icon: ShieldAlert,
+    color: "text-indigo-400",
+  },
+  {
+    id: "RepairAgent",
+    label: "Repair Agent",
+    icon: Wrench,
+    color: "text-amber-500",
+  },
+  {
+    id: "CertificationAgent",
+    label: "Certification Agent",
+    icon: Award,
+    color: "text-emerald-400",
+  },
+  {
+    id: "AuditLogger",
+    label: "Audit Logger",
+    icon: FileText,
+    color: "text-zinc-400",
+  },
+];
+
+const REPAIR_LABELS = {
+  mask_pii: {
+    label: "Mask PII columns",
+    icon: Shield,
+    desc: "Replace PII values with hashed placeholders",
+  },
+  drop_leaky: {
+    label: "Drop leaky columns",
+    icon: XCircle,
+    desc: "Remove columns containing direct identifiers",
+  },
+  balance_minority: {
+    label: "Balance minority groups",
+    icon: Users,
+    desc: "Oversample underrepresented groups for fairness",
+  },
+  dp_noise: {
+    label: "Apply differential privacy",
+    icon: Sparkles,
+    desc: "Add Laplacian noise (ε≈2.0) to numeric features",
+  },
+};
+
+export default function Page() {
+  const [phase, setPhase] = useState("idle"); // idle | running | done
+  const [activeAgent, setActiveAgent] = useState(-1);
+  const [result, setResult] = useState(null);
+  const [history, setHistory] = useState([]); // for repair iterations
+  const [selectedActions, setSelectedActions] = useState([]);
+  const [uploadedName, setUploadedName] = useState(null);
+  const fileRef = useRef(null);
+  const resultsRef = useRef(null);
+
+  async function runAnalysis({ csvText, datasetName, useSample = false }) {
+    setPhase("running");
+    setActiveAgent(0);
+    setResult(null);
+    // animate timeline
+    const stepDur = 600;
+    let i = 0;
+    const ticker = setInterval(() => {
+      i++;
+      if (i < 8) setActiveAgent(i);
+    }, stepDur);
+    try {
+      const res = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ csvText, datasetName, useSample }),
+      });
+      const data = await res.json();
+      clearInterval(ticker);
+      if (!res.ok) {
+        toast.error(data.error || "Analysis failed");
+        setPhase("idle");
+        return;
+      }
+      const finalIndex =
+        data.policy.decision === "APPROVE" ||
+        data.policy.decision === "CONDITIONAL"
+          ? 11
+          : 9;
+      setActiveAgent(finalIndex);
+      setTimeout(() => {
+        setResult(data);
+        setHistory([{ ...data, iteration: 0 }]);
+        setSelectedActions(data.suggested_repair || []);
+        setPhase("done");
+        setTimeout(
+          () => resultsRef.current?.scrollIntoView({ behavior: "smooth" }),
+          200,
+        );
+        toast.success(
+          `Analysis complete — Trust τ = ${data.trust.trust_score.toFixed(3)}`,
+        );
+      }, 300);
+    } catch (e) {
+      clearInterval(ticker);
+      toast.error("Network error: " + e.message);
+      setPhase("idle");
+    }
+  }
+
+  async function runRepair() {
+    if (!result || selectedActions.length === 0) {
+      toast.error("Select at least one repair action");
+      return;
+    }
+    setPhase("running");
+    setActiveAgent(8);
+    const ticker = setInterval(
+      () => setActiveAgent((a) => (a === 8 ? 0 : Math.min(a + 1, 7))),
+      500,
+    );
+    try {
+      const res = await fetch("/api/repair", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          run_id: result.run_id,
+          actions: selectedActions,
+        }),
+      });
+      const data = await res.json();
+      clearInterval(ticker);
+      if (!res.ok) {
+        toast.error(data.error || "Repair failed");
+        setPhase("done");
+        return;
+      }
+      const finalIndex =
+        data.policy.decision === "APPROVE" ||
+        data.policy.decision === "CONDITIONAL"
+          ? 11
+          : 9;
+      setActiveAgent(finalIndex);
+      setTimeout(() => {
+        setResult(data);
+        setHistory((h) => [...h, { ...data, iteration: h.length }]);
+        setSelectedActions(data.suggested_repair || []);
+        setPhase("done");
+        const delta = data.trust.trust_score - (data.previous_trust || 0);
+        toast.success(
+          `Repair applied — τ ${delta >= 0 ? "+" : ""}${delta.toFixed(3)} → ${data.trust.trust_score.toFixed(3)}`,
+        );
+      }, 300);
+    } catch (e) {
+      clearInterval(ticker);
+      toast.error("Repair error: " + e.message);
+      setPhase("done");
+    }
+  }
+
+  function handleFile(e) {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    setUploadedName(f.name);
+    const reader = new FileReader();
+    reader.onload = (ev) =>
+      runAnalysis({ csvText: ev.target.result, datasetName: f.name });
+    reader.readAsText(f);
+  }
+
+  function downloadReport() {
+    if (!result) return;
+    const report = {
+      certificate: {
+        dataset: result.datasetName,
+        run_id: result.run_id,
+        issued_at: new Date().toISOString(),
+        trust_score: result.trust.trust_score,
+        decision: result.policy.decision,
+        status:
+          result.policy.decision === "APPROVE"
+            ? "CERTIFIED"
+            : result.policy.decision === "CONDITIONAL"
+              ? "CONDITIONALLY CERTIFIED"
+              : result.policy.decision === "REJECT"
+                ? "REJECTED"
+                : "REPAIR REQUIRED",
+      },
+      metrics: result.metrics,
+      trust: result.trust,
+      policy: result.policy,
+      audit_log: result.audit_log,
+      narrative: result.narrative,
+      repair_log: result.repair_log || null,
+    };
+    const blob = new Blob([JSON.stringify(report, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `trustforge-certificate-${result.run_id?.slice(0, 8)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function reset() {
+    setResult(null);
+    setHistory([]);
+    setPhase("idle");
+    setActiveAgent(-1);
+    setUploadedName(null);
+    setSelectedActions([]);
+  }
+
+  const renderNode = (id) => {
+    const index = AGENT_FLOW.findIndex((a) => a.id === id);
+    if (index === -1) return null;
+    const a = AGENT_FLOW[index];
+
+    let done = false;
+    let active = false;
+
+    if (phase === "running") {
+      if (activeAgent === 8) {
+        active = index === 8;
+        done = false;
+      } else {
+        active = index === activeAgent;
+        done = index < activeAgent;
+      }
+    } else if (phase === "done" && result) {
+      const dec = result.policy.decision;
+      const isApprove = dec === "APPROVE" || dec === "CONDITIONAL";
+
+      if (isApprove) {
+        done = index !== 8;
+      } else {
+        done = index <= 8 || index === 10;
+      }
+    }
+
+    const Icon = a.icon;
+    return (
+      <div
+        key={a.id}
+        className={`relative w-44 rounded-xl border p-3.5 transition-all duration-300 flex flex-col items-center text-center bg-card/65 backdrop-blur-md shadow-md ${
+          active
+            ? "border-indigo-500/80 bg-indigo-500/10 shadow-lg shadow-indigo-500/25 scale-105 ring-1 ring-indigo-500/50"
+            : done
+              ? "border-emerald-500/40 bg-emerald-500/5 shadow-inner"
+              : "border-border/40 bg-card/30 opacity-45"
+        }`}
+      >
+        <div className="flex items-center justify-center h-10 w-10 rounded-lg bg-background/50 border border-border/50 relative">
+          <Icon
+            className={`h-5 w-5 ${active ? "animate-bounce " + a.color : done ? "text-emerald-400" : "text-muted-foreground"}`}
+          />
+          {done && (
+            <CheckCircle2 className="h-4 w-4 text-emerald-400 absolute -top-1.5 -right-1.5 bg-background rounded-full" />
+          )}
+          {active && (
+            <div className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-indigo-400 animate-ping" />
+          )}
+        </div>
+        <div className="text-xs font-semibold mt-2.5 tracking-tight text-foreground/90">
+          {a.label}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <main className="min-h-screen relative">
+      {/* HERO */}
+      <section className="relative overflow-hidden border-b border-border">
+        <div
+          className="absolute inset-0 opacity-30 bg-cover bg-center"
+          style={{
+            backgroundImage:
+              "url(https://images.unsplash.com/photo-1653549893012-b8b4fbe97630?crop=entropy&cs=srgb&fm=jpg&q=85&w=2400)",
+          }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-br from-background/95 via-background/70 to-background/95" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(99,102,241,0.15),transparent_50%)]" />
+        <div className="container relative mx-auto px-6 py-20 lg:py-28">
+          <div className="flex items-center gap-2 mb-6">
+            <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-indigo-500 to-fuchsia-500 flex items-center justify-center">
+              <Award className="h-5 w-5 text-white" />
+            </div>
+            <span className="text-xl font-bold tracking-tight">TrustForge</span>
+            <Badge
+              variant="outline"
+              className="ml-2 border-indigo-500/40 text-indigo-300"
+            >
+              Agentic AI
+            </Badge>
+          </div>
+          <h1 className="text-4xl md:text-6xl font-bold tracking-tight max-w-3xl bg-gradient-to-br from-foreground via-foreground to-foreground/60 bg-clip-text text-transparent">
+            Certify the trustworthiness of your synthetic datasets
+          </h1>
+          <p className="mt-5 text-lg text-muted-foreground max-w-2xl">
+            A multi - agent system that evaluates privacy, fairness, utility &
+            robustness, enforces compliance policies, repairs your dataset
+            autonomously, and produces a signed certification.
+          </p>
+          <div className="mt-8 flex flex-wrap gap-3">
+            <Button
+              size="lg"
+              onClick={() => runAnalysis({ useSample: true })}
+              disabled={phase === "running"}
+              className="bg-gradient-to-r from-indigo-500 to-fuchsia-500 hover:from-indigo-400 hover:to-fuchsia-400 text-white border-0"
+            >
+              <Play className="h-4 w-4 mr-2" /> Run on Sample Healthcare Dataset
+            </Button>
+            <Button
+              size="lg"
+              variant="outline"
+              onClick={() => fileRef.current?.click()}
+              disabled={phase === "running"}
+            >
+              <Upload className="h-4 w-4 mr-2" /> Upload your CSV
+            </Button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".csv"
+              className="hidden"
+              onChange={handleFile}
+            />
+          </div>
+          <div className="mt-10 grid grid-cols-2 md:grid-cols-4 gap-3 max-w-3xl">
+            {[
+              { k: "Trust τ", v: "> 0.88", icon: Award },
+              { k: "Privacy", v: "NNDR > 0.90", icon: Lock },
+              { k: "Fairness", v: "SPD < 0.10", icon: Scale },
+              { k: "Utility", v: "F1 > 0.92", icon: Beaker },
+            ].map((s, i) => (
+              <div
+                key={i}
+                className="rounded-lg border border-border/60 bg-card/40 backdrop-blur-sm p-3"
+              >
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <s.icon className="h-3.5 w-3.5" /> {s.k}
+                </div>
+                <div className="text-lg font-semibold mt-1">{s.v}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* AGENT FLOW */}
+      {phase !== "idle" && (
+        <section className="container mx-auto px-6 py-10">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-2xl font-semibold flex items-center gap-2">
+                <Cpu className="h-5 w-5 text-indigo-400" /> Agent Pipeline
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                {uploadedName
+                  ? `Processing ${uploadedName}`
+                  : "Multi-agent evaluation in progress"}
+              </p>
+            </div>
+            {phase === "done" && (
+              <Button variant="ghost" size="sm" onClick={reset}>
+                <RotateCcw className="h-4 w-4 mr-1" /> New analysis
+              </Button>
+            )}
+          </div>
+          <Card className="p-8 bg-card/60 backdrop-blur border-border/60 overflow-hidden">
+            <div className="flex flex-col items-center gap-2 py-6 w-full max-w-4xl mx-auto">
+              {/* Level 1: Intent Router */}
+              <div className="flex justify-center items-center relative w-full">
+                {renderNode("IntentRouter")}
+              </div>
+
+              {/* Connecting lines Router -> Evaluators */}
+              <svg
+                className="w-full max-w-lg h-10 stroke-muted-foreground/35 fill-none"
+                viewBox="0 0 400 40"
+              >
+                <path d="M200 0 L200 15" strokeWidth="2" />
+                <path d="M200 15 L66 15 L66 40" strokeWidth="2" />
+                <path d="M200 15 L200 40" strokeWidth="2" />
+                <path d="M200 15 L333 15 L333 40" strokeWidth="2" />
+              </svg>
+
+              {/* Level 2: Parallel Evaluators */}
+              <div className="flex justify-around items-center w-full gap-4 px-4">
+                {renderNode("CoverageAgent")}
+                {renderNode("PrivacyAgent")}
+                {renderNode("FairnessAgent")}
+              </div>
+
+              {/* Connecting lines Evaluators -> Utility */}
+              <svg
+                className="w-full max-w-lg h-10 stroke-muted-foreground/35 fill-none"
+                viewBox="0 0 400 40"
+              >
+                <path d="M66 0 L66 25 L200 25" strokeWidth="2" />
+                <path d="M200 0 L200 25" strokeWidth="2" />
+                <path d="M333 0 L333 25 L200 25" strokeWidth="2" />
+                <path d="M200 25 L200 40" strokeWidth="2" />
+              </svg>
+
+              {/* Level 3: Utility */}
+              <div className="flex justify-center items-center relative w-full">
+                {renderNode("UtilityAgent")}
+              </div>
+
+              {/* Connecting lines Utility -> Robustness */}
+              <svg
+                className="w-8 h-8 stroke-muted-foreground/35 fill-none"
+                viewBox="0 0 32 32"
+              >
+                <path d="M16 0 L16 32" strokeWidth="2" />
+              </svg>
+
+              {/* Level 4: Robustness */}
+              <div className="flex justify-center items-center relative w-full">
+                {renderNode("RobustnessAgent")}
+              </div>
+
+              {/* Connecting lines Robustness -> Trust Aggregator */}
+              <svg
+                className="w-8 h-8 stroke-muted-foreground/35 fill-none"
+                viewBox="0 0 32 32"
+              >
+                <path d="M16 0 L16 32" strokeWidth="2" />
+              </svg>
+
+              {/* Level 5: Trust Aggregator */}
+              <div className="flex justify-center items-center relative w-full">
+                {renderNode("TrustAggregationAgent")}
+              </div>
+
+              {/* Connecting lines Trust Aggregator -> Policy */}
+              <svg
+                className="w-8 h-8 stroke-muted-foreground/35 fill-none"
+                viewBox="0 0 32 32"
+              >
+                <path d="M16 0 L16 32" strokeWidth="2" />
+              </svg>
+
+              {/* Level 6: Policy */}
+              <div className="flex justify-center items-center relative w-full">
+                {renderNode("PolicyAgent")}
+              </div>
+
+              {/* Connecting lines Policy -> Repair OR Certification */}
+              <svg
+                className="w-full max-w-md h-10 stroke-muted-foreground/35 fill-none"
+                viewBox="0 0 300 40"
+              >
+                <path d="M150 0 L150 15" strokeWidth="2" />
+                <path d="M150 15 L75 15 L75 40" strokeWidth="2" />
+                <path d="M150 15 L225 15 L225 40" strokeWidth="2" />
+              </svg>
+
+              {/* Level 7: Repair & Certification */}
+              <div className="flex justify-around items-center w-full gap-8 px-4">
+                <div className="flex flex-col items-center gap-2 w-1/2">
+                  {renderNode("RepairAgent")}
+                  {result?.policy?.decision === "REPAIR" && (
+                    <span className="text-[10px] text-amber-400 font-mono animate-pulse mt-1">
+                      🔄 Loopback ready
+                    </span>
+                  )}
+                </div>
+                <div className="flex flex-col items-center gap-2 w-1/2">
+                  {renderNode("CertificationAgent")}
+                </div>
+              </div>
+
+              {/* Connecting lines Repair / Certification -> Audit Logger */}
+              <svg
+                className="w-full max-w-md h-10 stroke-muted-foreground/35 fill-none"
+                viewBox="0 0 300 40"
+              >
+                <path d="M75 0 L75 15 L150 15" strokeWidth="2" />
+                <path d="M225 0 L225 15 L150 15" strokeWidth="2" />
+                <path d="M150 15 L150 40" strokeWidth="2" />
+              </svg>
+
+              {/* Level 8: Audit Logger */}
+              <div className="flex justify-center items-center relative w-full">
+                {renderNode("AuditLogger")}
+              </div>
+            </div>
+          </Card>
+        </section>
+      )}
+
+      {/* RESULTS */}
+      {phase === "done" && result && (
+        <section
+          ref={resultsRef}
+          className="container mx-auto px-6 pb-20 space-y-8"
+        >
+          {/* CERTIFICATE BANNER */}
+          <CertificateBanner result={result} onDownload={downloadReport} />
+
+          {/* TRUST RADAR + METRICS */}
+          <div className="grid lg:grid-cols-3 gap-6">
+            <Card className="lg:col-span-1 border-border/60 bg-card/60 backdrop-blur">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Brain className="h-4 w-4 text-fuchsia-400" /> Trust Radar
+                </CardTitle>
+                <CardDescription>
+                  {" "}
+                  τ = Π πᵢʷⁱ — weighted geometric mean
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <TrustRadar trust={result.trust} />
+                <div className="text-center mt-4">
+                  <div className="text-5xl font-bold bg-gradient-to-br from-indigo-400 to-fuchsia-400 bg-clip-text text-transparent">
+                    {result.trust.trust_score.toFixed(3)}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Trust Score (threshold 0.88)
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <div className="lg:col-span-2 grid sm:grid-cols-2 gap-4">
+              <MetricCard
+                title="Coverage"
+                icon={Database}
+                color="text-cyan-400"
+                score={result.metrics.coverage.score}
+                benchmark={0.9}
+                stats={[
+                  {
+                    k: "Entropy",
+                    v: result.metrics.coverage.entropy.toFixed(3),
+                  },
+                  {
+                    k: "Coverage Ratio",
+                    v: result.metrics.coverage.coverage_ratio.toFixed(3),
+                  },
+                  {
+                    k: "KL Divergence",
+                    v: result.metrics.coverage.kl_divergence.toFixed(3),
+                  },
+                ]}
+              />
+              <MetricCard
+                title="Privacy"
+                icon={Lock}
+                color="text-emerald-400"
+                score={result.metrics.privacy.score}
+                benchmark={0.9}
+                stats={[
+                  { k: "NNDR", v: result.metrics.privacy.nndr.toFixed(3) },
+                  {
+                    k: "Exact Replicas",
+                    v: result.metrics.privacy.exact_replicas,
+                  },
+                  {
+                    k: "PII Columns",
+                    v: result.metrics.privacy.pii_columns.length,
+                  },
+                ]}
+              />
+              <MetricCard
+                title="Fairness"
+                icon={Scale}
+                color="text-purple-400"
+                score={result.metrics.fairness.score}
+                benchmark={0.9}
+                stats={[
+                  { k: "SPD", v: result.metrics.fairness.spd.toFixed(3) },
+                  {
+                    k: "Disparate Impact",
+                    v: result.metrics.fairness.di.toFixed(3),
+                  },
+                  {
+                    k: "Protected",
+                    v: result.metrics.fairness.protected_attribute,
+                  },
+                ]}
+              />
+              <MetricCard
+                title="Utility"
+                icon={Beaker}
+                color="text-amber-400"
+                score={result.metrics.utility.score}
+                benchmark={0.92}
+                stats={[
+                  { k: "F1", v: result.metrics.utility.f1.toFixed(3) },
+                  {
+                    k: "ROC-AUC",
+                    v: result.metrics.utility.roc_auc.toFixed(3),
+                  },
+                  {
+                    k: "Target",
+                    v: result.metrics.utility.target_column || "n/a",
+                  },
+                ]}
+              />
+            </div>
+          </div>
+
+          {/* DETAIL TABS */}
+          <Card className="border-border/60 bg-card/60 backdrop-blur">
+            <Tabs defaultValue="policy" className="w-full">
+              <CardHeader className="pb-0">
+                <TabsList className="bg-background/40">
+                  <TabsTrigger value="policy">Policy Checks</TabsTrigger>
+                  <TabsTrigger value="repair">Repair Loop</TabsTrigger>
+                  <TabsTrigger value="preview">Data Preview</TabsTrigger>
+                  <TabsTrigger value="audit">Audit Trail</TabsTrigger>
+                  <TabsTrigger value="dimensions">Dimensions</TabsTrigger>
+                </TabsList>
+              </CardHeader>
+              <CardContent className="pt-6">
+                <TabsContent value="policy">
+                  <PolicyChecks
+                    policy={result.policy}
+                    narrative={result.narrative}
+                  />
+                </TabsContent>
+                <TabsContent value="repair">
+                  <RepairPanel
+                    result={result}
+                    selectedActions={selectedActions}
+                    setSelectedActions={setSelectedActions}
+                    onRun={runRepair}
+                    history={history}
+                    running={phase === "running"}
+                  />
+                </TabsContent>
+                <TabsContent value="preview">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1.5 font-medium">
+                        <Database className="h-3.5 w-3.5 text-indigo-400" /> Sample Preview (Top 6 Rows)
+                      </div>
+                      <Badge variant="outline" className="text-[10px] border-border/60">
+                        {result.row_count} total rows
+                      </Badge>
+                    </div>
+                    {result.rows_preview && result.rows_preview.length > 0 ? (
+                      <div className="overflow-x-auto rounded-lg border border-border/60 bg-background/20">
+                        <table className="w-full text-left text-xs border-collapse">
+                          <thead>
+                            <tr className="bg-background/80 border-b border-border/60">
+                              {Object.keys(result.rows_preview[0]).map((col) => (
+                                <th key={col} className="p-3 font-semibold text-muted-foreground">
+                                  {col}
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {result.rows_preview.map((row, idx) => (
+                              <tr key={idx} className="border-b border-border/40 hover:bg-muted/30 transition-colors">
+                                {Object.values(row).map((val, cIdx) => {
+                                  const isMasked = String(val).startsWith("XXX-MASKED-");
+                                  return (
+                                    <td key={cIdx} className="p-3 font-mono text-[11px] max-w-[200px] truncate">
+                                      {isMasked ? (
+                                        <span className="inline-flex items-center gap-1 bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded text-[10px] font-semibold border border-amber-500/30">
+                                          <Lock className="h-2.5 w-2.5" /> {String(val)}
+                                        </span>
+                                      ) : (
+                                        String(val)
+                                      )}
+                                    </td>
+                                  );
+                                })}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <div className="text-sm text-muted-foreground py-8 text-center">
+                        No preview rows returned from backend.
+                      </div>
+                    )}
+                  </div>
+                </TabsContent>
+                <TabsContent value="audit">
+                  <AuditTrail
+                    log={result.audit_log}
+                    latency={result.latency_ms}
+                  />
+                </TabsContent>
+                <TabsContent value="dimensions">
+                  <DimensionBars
+                    dims={result.trust.dimension_scores}
+                    weights={result.trust.weights}
+                  />
+                </TabsContent>
+              </CardContent>
+            </Tabs>
+          </Card>
+        </section>
+      )}
+
+      <footer className="border-t border-border/60 py-6">
+        <div className="container mx-auto px-6 text-xs text-muted-foreground flex items-center justify-between">
+          <span>
+            {" "}
+            TrustForge · Agentic Certification Framework for Synthetic Data
+          </span>
+          <span className="flex items-center gap-2">
+            <Activity className="h-3 w-3" /> Multi-agent stack · NeMo-inspired
+          </span>
+        </div>
+      </footer>
+    </main>
+  );
+}
+
+function CertificateBanner({ result, onDownload }) {
+  const d = result.policy.decision;
+  const status =
+    d === "APPROVE"
+      ? {
+          label: "CERTIFIED",
+          cls: "from-emerald-500 to-green-500",
+          icon: CheckCircle2,
+        }
+      : d === "CONDITIONAL"
+        ? {
+            label: "CONDITIONALLY CERTIFIED",
+            cls: "from-amber-500 to-orange-500",
+            icon: AlertTriangle,
+          }
+        : d === "REPAIR"
+          ? {
+              label: "REPAIR REQUIRED",
+              cls: "from-orange-500 to-rose-500",
+              icon: Wrench,
+            }
+          : {
+              label: "REJECTED",
+              cls: "from-rose-500 to-red-600",
+              icon: XCircle,
+            };
+  const Icon = status.icon;
+  return (
+    <Card className={`border-0 overflow-hidden relative`}>
+      <div
+        className={`absolute inset-0 bg-gradient-to-br ${status.cls} opacity-20`}
+      />
+      <div
+        className={`absolute inset-0 bg-gradient-to-tr from-background via-transparent to-background/40`}
+      />
+      <CardContent className="relative p-8 flex flex-col md:flex-row items-center justify-between gap-6">
+        <div className="flex items-center gap-5">
+          <div
+            className={`h-16 w-16 rounded-2xl bg-gradient-to-br ${status.cls} flex items-center justify-center shadow-lg`}
+          >
+            <Icon className="h-8 w-8 text-white" />
+          </div>
+          <div>
+            <div className="text-xs uppercase tracking-widest text-muted-foreground">
+              Certification Status
+            </div>
+            <div className="text-2xl md:text-3xl font-bold mt-1">
+              {status.label}
+            </div>
+            <div className="text-sm text-muted-foreground mt-1">
+              Dataset:{" "}
+              <span className="text-foreground">{result.datasetName}</span> ·
+              Run ID:{" "}
+              <span className="font-mono text-xs">
+                {result.run_id?.slice(0, 8)}
+              </span>
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-6">
+          <div className="text-right">
+            <div className="text-xs text-muted-foreground">Trust τ</div>
+            <div className="text-4xl font-bold">
+              {result.trust.trust_score.toFixed(3)}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {result.policy.passed_count}/{result.policy.total_count} checks
+              passed · {result.latency_ms}ms
+            </div>
+          </div>
+          <Button
+            onClick={onDownload}
+            variant="outline"
+            className="border-border/60"
+          >
+            <Download className="h-4 w-4 mr-2" /> Download Certificate
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function TrustRadar({ trust }) {
+  const data = Object.entries(trust.dimension_scores).map(([k, v]) => ({
+    dim: k.charAt(0).toUpperCase() + k.slice(1),
+    score: v,
+  }));
+  return (
+    <ResponsiveContainer width="100%" height={260}>
+      <RadarChart data={data}>
+        <PolarGrid stroke="hsl(var(--border))" />
+        <PolarAngleAxis
+          dataKey="dim"
+          tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
+        />
+        <PolarRadiusAxis
+          angle={90}
+          domain={[0, 1]}
+          tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }}
+        />
+        <Radar
+          name="τ"
+          dataKey="score"
+          stroke="#a855f7"
+          fill="#a855f7"
+          fillOpacity={0.35}
+        />
+      </RadarChart>
+    </ResponsiveContainer>
+  );
+}
+
+function MetricCard({ title, icon: Icon, color, score, benchmark, stats }) {
+  const pass = score >= benchmark;
+  const pct = Math.round(score * 100);
+  return (
+    <Card className="border-border/60 bg-card/60 backdrop-blur">
+      <CardContent className="p-5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Icon className={`h-4 w-4 ${color}`} />
+            <span className="font-medium">{title}</span>
+          </div>
+          <Badge
+            variant={pass ? "default" : "destructive"}
+            className={
+              pass
+                ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
+                : "bg-rose-500/20 text-rose-300 border-rose-500/30"
+            }
+          >
+            {pass ? "PASS" : "FAIL"}
+          </Badge>
+        </div>
+        <div className="mt-3 flex items-baseline gap-2">
+          <span className="text-3xl font-bold">{score.toFixed(3)}</span>
+          <span className="text-xs text-muted-foreground">
+            / {benchmark} benchmark
+          </span>
+        </div>
+        <Progress value={pct} className="h-1.5 mt-2" />
+        <div className="mt-4 grid grid-cols-3 gap-2 text-xs">
+          {stats.map((s, i) => (
+            <div key={i} className="space-y-0.5">
+              <div className="text-muted-foreground truncate">{s.k}</div>
+              <div className="font-medium truncate">{s.v}</div>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function PolicyChecks({ policy, narrative }) {
+  return (
+    <div className="space-y-4">
+      {narrative && (
+        <div className="rounded-lg border border-indigo-500/30 bg-indigo-500/5 p-4">
+          <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-indigo-300 mb-2">
+            <Sparkles className="h-3.5 w-3.5" /> Certification Agent Narrative
+            (Claude Sonnet 4)
+          </div>
+          <p className="text-sm leading-relaxed">{narrative}</p>
+        </div>
+      )}
+      <div className="space-y-2">
+        {policy.checks.map((c, i) => (
+          <div
+            key={i}
+            className={`flex items-center gap-3 rounded-md border p-3 ${c.passed ? "border-emerald-500/30 bg-emerald-500/5" : "border-rose-500/30 bg-rose-500/5"}`}
+          >
+            {c.passed ? (
+              <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+            ) : (
+              <XCircle className="h-4 w-4 text-rose-400" />
+            )}
+            <span className="font-mono text-sm">{c.name}</span>
+            <span className="ml-auto text-sm text-muted-foreground">
+              actual{" "}
+              <span className={c.passed ? "text-emerald-300" : "text-rose-300"}>
+                {" "}
+                {typeof c.value === "number" ? c.value.toFixed(3) : c.value}
+              </span>
+            </span>
+          </div>
+        ))}
+      </div>
+      <div className="rounded-md border border-border/60 p-3 text-sm">
+        <span className="text-muted-foreground">Final decision:</span>{" "}
+        <span className="font-semibold">{policy.decision}</span>
+      </div>
+    </div>
+  );
+}
+
+function RepairPanel({
+  result,
+  selectedActions,
+  setSelectedActions,
+  onRun,
+  history,
+  running,
+}) {
+  const toggle = (a) =>
+    setSelectedActions((s) =>
+      s.includes(a) ? s.filter((x) => x !== a) : [...s, a],
+    );
+  return (
+    <div className="space-y-5">
+      <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
+        <div className="flex items-center gap-2 text-amber-300 text-sm font-medium">
+          <Wrench className="h-4 w-4" /> Repair Agent Recommendations
+        </div>
+        <p className="text-sm text-muted-foreground mt-1">
+          The Policy Agent flagged issues.The Repair Agent has selected the
+          actions below based on which metrics failed. Toggle and re - run to
+          close the loop autonomously.
+        </p>
+      </div>
+      <div className="grid sm:grid-cols-2 gap-3">
+        {Object.entries(REPAIR_LABELS).map(([key, info]) => {
+          const Icon = info.icon;
+          const checked = selectedActions.includes(key);
+          const suggested = (result.suggested_repair || []).includes(key);
+          return (
+            <label
+              key={key}
+              className={`cursor-pointer rounded-lg border p-4 flex gap-3 transition ${checked ? "border-indigo-500/60 bg-indigo-500/10" : "border-border/60 bg-card/40 hover:border-border"}`}
+            >
+              <Checkbox
+                checked={checked}
+                onCheckedChange={() => toggle(key)}
+                className="mt-1"
+              />
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <Icon className="h-4 w-4" />
+                  <span className="font-medium">{info.label}</span>
+                  {suggested && (
+                    <Badge className="bg-indigo-500/20 text-indigo-300 border-indigo-500/30 ml-auto text-[10px]">
+                      SUGGESTED
+                    </Badge>
+                  )}
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  {info.desc}
+                </div>
+              </div>
+            </label>
+          );
+        })}
+      </div>
+      <div className="flex items-center gap-3">
+        <Button
+          onClick={onRun}
+          disabled={running || selectedActions.length === 0}
+          className="bg-gradient-to-r from-amber-500 to-rose-500 text-white border-0"
+        >
+          <Wrench className="h-4 w-4 mr-2" /> Run Repair Loop
+        </Button>
+        <span className="text-xs text-muted-foreground">
+          {selectedActions.length} action(s) selected
+        </span>
+      </div>
+      {history.length > 1 && (
+        <>
+          <Separator />
+          <div>
+            <h4 className="text-sm font-medium mb-3">Repair Loop History</h4>
+            <div className="space-y-2">
+              {history.map((h, i) => (
+                <div
+                  key={i}
+                  className="flex items-center gap-3 rounded-md border border-border/60 p-3 text-sm"
+                >
+                  <Badge variant="outline">Iter {i}</Badge>
+                  <span className="text-muted-foreground">τ =</span>
+                  <span className="font-mono font-medium">
+                    {h.trust.trust_score.toFixed(3)}
+                  </span>
+                  {i > 0 &&
+                    (() => {
+                      const delta =
+                        h.trust.trust_score - history[i - 1].trust.trust_score;
+                      return (
+                        <Badge
+                          className={
+                            delta >= 0
+                              ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
+                              : "bg-rose-500/20 text-rose-300 border-rose-500/30"
+                          }
+                        >
+                          {delta >= 0 ? "+" : ""}
+                          {delta.toFixed(3)}
+                        </Badge>
+                      );
+                    })()}
+                  <span className="ml-auto text-xs text-muted-foreground">
+                    {h.policy.decision}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+      {result.repair_log && (
+        <div className="rounded-lg border border-border/60 p-4">
+          <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+            <FileText className="h-4 w-4" /> Last Repair Log
+          </h4>
+          <ul className="text-xs space-y-1 text-muted-foreground font-mono">
+            {result.repair_log.map((l, i) => (
+              <li key={i}>· {l}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AuditTrail({ log, latency }) {
+  return (
+    <div>
+      <div className="text-xs text-muted-foreground mb-3">
+        Total pipeline latency:{" "}
+        <span className="font-mono text-foreground">{latency}ms</span> ·{" "}
+        {log.length} events logged
+      </div>
+      <div className="rounded-lg border border-border/60 bg-background/40 p-4 max-h-96 overflow-auto font-mono text-xs space-y-1.5">
+        {log.map((e, i) => (
+          <div key={i} className="flex gap-3 items-start">
+            <span className="text-muted-foreground shrink-0">
+              {new Date(e.ts).toLocaleTimeString()}
+            </span>
+            <Badge variant="outline" className="shrink-0 text-[10px] py-0">
+              {e.agent}
+            </Badge>
+            <span className="text-foreground/80">{e.message}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DimensionBars({ dims, weights }) {
+  const data = Object.keys(dims).map((k) => ({
+    dim: k,
+    score: dims[k],
+    weighted: dims[k] * (weights[k] || 0),
+    weight: weights[k] || 0,
+  }));
+  return (
+    <div>
+      <ResponsiveContainer width="100%" height={280}>
+        <BarChart data={data}>
+          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+          <XAxis
+            dataKey="dim"
+            tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
+          />
+          <YAxis
+            domain={[0, 1]}
+            tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
+          />
+          <Tooltip
+            contentStyle={{
+              backgroundColor: "hsl(var(--card))",
+              border: "1px solid hsl(var(--border))",
+            }}
+          />
+          <Bar dataKey="score" fill="#6366f1" radius={[4, 4, 0, 0]} />
+        </BarChart>
+      </ResponsiveContainer>
+      <div className="mt-4 grid grid-cols-5 gap-2 text-xs">
+        {data.map((d, i) => (
+          <div key={i} className="rounded-md border border-border/60 p-2">
+            <div className="text-muted-foreground capitalize">{d.dim}</div>
+            <div className="font-mono">
+              {d.score.toFixed(3)} × {d.weight.toFixed(2)}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}

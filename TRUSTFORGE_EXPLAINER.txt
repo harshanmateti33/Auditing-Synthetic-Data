@@ -1,0 +1,154 @@
+================================================================================
+                              TRUSTFORGE EXPLAINER
+    A Beginner-Friendly Guide to the TrustForge Agentic Compliance Stack
+================================================================================
+
+This document explains the system architecture, metric calculations, repair mechanisms,
+and the live NVIDIA AI Stack API calls that power TrustForge.
+
+--------------------------------------------------------------------------------
+1. SYSTEM ARCHITECTURE & NVIDIA AI STACK WORKFLOW
+--------------------------------------------------------------------------------
+
+Whenever you upload a dataset, TrustForge runs an autonomous agentic pipeline. Each 
+agent is backed by a specific NVIDIA tool or library, communicating via APIs:
+
+```
+                      User Upload (Dataset CSV)
+                               │
+                               ▼
+            Intent Router Agent (NeMo / Nemotron NIM) [1]
+                               │
+       ┌───────────────────────┼───────────────────────┐
+       │                       │                       │
+       ▼                       ▼                       ▼
+Coverage Agent           Privacy Agent           Fairness Agent
+(RAPIDS cuDF) [2]        (RAPIDS cuDF) [2]        (RAPIDS cuDF) [2]
+       │                       │                       │
+       └───────────────────────┼───────────────────────┘
+                               │
+                               ▼
+                         Utility Agent (RAPIDS cuML XGBoost) [3]
+                               │
+                               ▼
+                        Robustness Agent (TensorRT-LLM / Triton) [4]
+                               │
+                               ▼
+                    Trust Aggregation Agent [5]
+                               │
+                               ▼
+                   Policy Agent (NeMo Guardrails via NIM) [6]
+                               │
+                               ▼
+                    Repair Agent (cuDF / NIM Advisor) [7]
+                               │
+                               ▼
+                     Certification Agent (NIM Narrative) [8]
+                               │
+                               ▼
+                         Audit Logger [9]
+```
+
+How each agent executes in the pipeline:
+[1] Intent Router Agent: Uses the NVIDIA Llama-3.1-Nemotron hosted NIM to inspect 
+    your dataset name and columns, categorize the data domain (e.g., healthcare, 
+    finance, insurance), and plan which tests are needed.
+[2] Coverage, Privacy, & Fairness Agents: Use RAPIDS cuDF to load the entire 
+    dataset directly into GPU memory for high-speed statistical scans.
+[3] Utility Agent: Trains a Random Forest/XGBoost classifier in GPU memory using 
+    RAPIDS cuML to see if a model trained on this data remains highly accurate.
+[4] Robustness Agent: Simulates Triton Inference Server stress tests by applying 
+    distribution shifts and noise checks to ensure the dataset is robust.
+[5] Trust Aggregation Agent: Mathematically pools all scores together.
+[6] Policy Agent: Uses NeMo Guardrails rules executed via the Nemotron NIM 
+    to decide if the dataset is compliant (APPROVE, CONDITIONAL, REPAIR, REJECT).
+[7] Repair Agent: Uses cuDF to edit the data and the NIM LLM to write a 
+    remediation guide explaining what actions were taken.
+[8] Certification Agent: Calls Llama-3.1-Nemotron NIM to write a human-readable 
+    compliance narrative summary explaining the audit outcome.
+[9] Audit Logger: Records a secure event trail showing times and agent outputs.
+
+--------------------------------------------------------------------------------
+2. HOW METRICS ARE CALCULATED FROM SCRATCH
+--------------------------------------------------------------------------------
+
+* Coverage (Fidelity):
+  Determines if the synthetic data matches standard variety. We calculate Shannon 
+  Entropy on each column. If the values are too repetitive, entropy is low.
+  
+* Privacy (Leakage):
+  Scans for direct PII (Emails, SSNs, Credit Cards, IP addresses) and computes 
+  NNDR (Numerical Near Neighbor Distance Ratio). NNDR checks if synthetic rows 
+  are exact replicas of original records. A low NNDR means high leakage risk.
+
+* Fairness (Bias):
+  Measures bias against protected attributes (e.g., sex, age, race). It computes 
+  the Statistical Parity Difference (SPD) on target outcomes. If positive rates 
+  are unequal between groups, fairness is flagged.
+
+* Utility (ML Efficacy):
+  Splits the dataset and trains a RAPIDS classifier. The model's classification 
+  F1-Score measures if synthetic training data produces high-quality models.
+
+* Robustness:
+  Injects random Gaussian noise to test dataset resilience. If noise causes 
+  performance to degrade heavily, the dataset is flagged as fragile.
+
+* Trust Score (Geometric Mean):
+  Aggregates the individual scores with weighted importance.
+  Trust = (Coverage^0.20) * (Privacy^0.25) * (Fairness^0.20) * (Utility^0.25) * (Robustness^0.10)
+
+--------------------------------------------------------------------------------
+3. DATA REPAIRS & THEIR TRADE-OFFS
+--------------------------------------------------------------------------------
+
+When you click "Run Repair Loop", the Repair Agent applies mathematical operations:
+
+* Mask PII: Replaces emails/SSNs with masked symbols (e.g. `XXX-MASKED-jo`).
+  - Effect: Instantly stops identification leaks, but text data loses its utility.
+* Drop Leaky: Completely deletes columns that contain direct identifiers.
+  - Effect: Guarantees privacy, but removes that data dimension completely.
+* Balance Minority: Generates synthetic duplicates of underrepresented classes.
+  - Effect: Increases dataset fairness (reduces bias), but expands dataset size.
+* Differential Privacy (DP Noise): Injects Laplace noise to numeric fields.
+  - Effect: Protects individual rows from being identified, but slightly lowers 
+    the accuracy (utility) of machine learning models.
+
+--------------------------------------------------------------------------------
+4. CONSOLE LOGGING AND API VISIBILITY
+--------------------------------------------------------------------------------
+
+When running the Python backend, you will see real-time console logs showing 
+the exact NVIDIA cloud endpoints and models called for each API request:
+
+* Intent Router: "[NVIDIA NIM API] Calling Intent Router Agent via model 'meta/llama-3.1-nemotron-70b-instruct'..."
+* Coverage: "[RAPIDS cuDF] Coverage Agent: Calculating column entropies..."
+* Utility: "[RAPIDS cuML XGBoost] Utility Agent: Running train/test split..."
+* Guardrails Policy: "[NVIDIA NIM API] Calling Policy Agent (NeMo Guardrails)..."
+* Repair: "[RAPIDS cuDF / NIM] Repair Agent: Applying data remediations..."
+* Certification: "[NVIDIA NIM API] Calling Certification Agent via model 'meta/llama-3.1-nemotron-70b-instruct'..."
+
+================================================================================
+
+
+ Hackathon Strategy to Impress NVIDIA Judges 🚀
+
+============================================================================
+NVIDIA hackathon judges look for deep integrations with the NVIDIA hardware and AI software stacks, clear business utility, and smart multi-agent orchestration. Here are 5 key points to highlight during your demo:
+
+1. Frame it as "Guardrails for Data Pipelines"
+The Pitch: Explain that while NeMo Guardrails is normally used to filter text prompts, TrustForge uses it to filter raw datasets. You've created a policy firewall that stops bad, biased, or leaky synthetic data from escaping to enterprise production systems.
+NVIDIA Tech Hook: Highlight the NeMo Guardrails configuration and the cloud Llama-3.1-Nemotron NIM integration orchestrating the Intent Router and Policy Agent.
+2. Highlight RAPIDS GPU Acceleration (cuDF & cuML)
+The Pitch: Traditional evaluation packages (like SDMetrics) calculate statistical differences and train classifiers on CPUs, which halts pipelines for hours on large datasets.
+NVIDIA Tech Hook: Show that TrustForge loads datasets directly into GPU memory with cuDF for entropy, duplicates, and NNDR, and trains downstream classifiers in seconds using cuML (Random Forest) to evaluate utility.
+Demo Tip: Upload a larger CSV and point to your terminal logs. The near-instant results are powered by the RAPIDS parallelization!
+3. Explain the Triton/TensorRT Robustness Stress Test
+The Pitch: Enterprise ML models are served using Triton Inference Server. If the training data shifts slightly, predictions can break.
+NVIDIA Tech Hook: Explain that the Robustness Agent simulates a Triton model stress test by applying distribution noise to the synthetic data to guarantee the data is robust enough to survive Triton inference deployment.
+4. The Live Multi-Agent Execution Flow
+The Pitch: Walk the judges through the animated agent grid in the UI.
+Details: Show how the Intent Router detects if a dataset is medical vs. financial and delegates task routing, how parallel inspectors score the columns, and how the Repair Agent automatically patches failures.
+5. Leverage the NIM Narrative
+The Pitch: Instead of displaying dry numbers, your system outputs a natural language compliance audit summary.
+NVIDIA Tech Hook: Emphasize that the final audit report uses the meta/llama-3.1-nemotron-70b-instruct NIM endpoint to synthesize metrics into a concise human-readable narrative.

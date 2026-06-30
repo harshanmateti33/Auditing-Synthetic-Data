@@ -1,0 +1,9 @@
+fastapi>=0.100.0
+uvicorn>=0.22.0
+pandas>=2.0.0
+numpy>=1.24.0
+pydantic>=2.0
+python-multipart>=0.0.6
+requests>=2.30.0
+# RAPIDS cuDF & cuML and NeMo Guardrails are installed on GPU instances:
+# pip install --extra-index-url=https://pypi.nvidia.com cudf-cu12 cuml-cu12 nemoguardrails

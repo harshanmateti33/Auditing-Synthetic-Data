@@ -1,0 +1,13 @@
+# policies.co
+
+define flow compliance check
+  $metrics = execute run_nemo_pipeline
+  
+  if $metrics.trust_score < 0.88
+    execute trigger_repair_flow
+    bot refuse_certification "Dataset failed compliance threshold (Trust Score < 0.88)."
+  else
+    bot approve_certification "Dataset meets compliance standards."
+    
+define flow trigger_repair_flow
+  bot trigger_remediation "Trust Score below benchmark. Dispatching Repair Agent for automated data cleansing."
