@@ -413,7 +413,7 @@ async function generateNarrative(context) {
                 ],
                 max_tokens: 400,
             }),
-            signal: AbortSignal.timeout(15000),
+            signal: AbortSignal.timeout(4000),
         })
         if (!res.ok) return null
         const j = await res.json()
@@ -421,6 +421,86 @@ async function generateNarrative(context) {
     } catch (e) {
         return null
     }
+}
+
+// ---------- Local JavaScript Pipeline & Repair Fallbacks ----------
+function runLocalPipeline(csvText, datasetName) {
+    const { headers, rows } = parseCSV(csvText)
+    const columns = inferColumns(headers, rows)
+    
+    const coverage = agentCoverage(rows, columns)
+    const privacy = agentPrivacy(rows, columns)
+    const fairness = agentFairness(rows, columns)
+    const utility = agentUtility(rows, columns)
+    const robustness = agentRobustness(rows, columns)
+    
+    const metrics = { coverage, privacy, fairness, utility, robustness }
+    const trust = aggregateTrust(metrics)
+    const policy = policyDecision(metrics, trust)
+    
+    const suggested_repair = []
+    if (privacy.pii_columns.length > 0) suggested_repair.push('mask_pii')
+    if (privacy.nndr < 0.90 || privacy.replica_rate > 0.01) suggested_repair.push('dp_noise')
+    if (fairness.spd > 0.10) suggested_repair.push('balance_minority')
+    if (privacy.pii_columns.some(p => p.type !== 'identifier_heuristic')) suggested_repair.push('drop_leaky')
+    
+    const audit_log = [
+        { ts: new Date().toISOString(), agent: 'IntentRouter', message: `Dataset loaded: ${rows.length} rows x ${columns.length} columns (Local Simulation)` },
+        { ts: new Date().toISOString(), agent: 'IntentRouter', message: 'Domain: Generic. Routing execution plan: Privacy, Fairness, and Utility agents activated.' },
+        { ts: new Date().toISOString(), agent: 'CoverageAgent', message: `Coverage Agent completed. Score: ${coverage.score.toFixed(3)}` },
+        { ts: new Date().toISOString(), agent: 'PrivacyAgent', message: `Privacy Agent completed. Score: ${privacy.score.toFixed(3)}. Detected PII columns: ${privacy.pii_columns.length}` },
+        { ts: new Date().toISOString(), agent: 'FairnessAgent', message: `Fairness Agent completed. Score: ${fairness.score.toFixed(3)}. Protected field: '${fairness.protected_attribute}'` },
+        { ts: new Date().toISOString(), agent: 'UtilityAgent', message: `Utility Agent completed. Score (F1): ${utility.score.toFixed(3)}` },
+        { ts: new Date().toISOString(), agent: 'RobustnessAgent', message: `Robustness Agent completed. Accuracy degradation: ${robustness.accuracy_degradation.toFixed(3)}` },
+        { ts: new Date().toISOString(), agent: 'TrustAggregationAgent', message: `Trust Aggregated: t = ${trust.trust_score.toFixed(3)}` },
+        { ts: new Date().toISOString(), agent: 'PolicyAgent', message: `Policy compliance checklist run. Final decision: ${policy.decision}` }
+    ]
+    
+    if ((policy.decision === 'REPAIR' || policy.decision === 'REJECT') && suggested_repair.length > 0) {
+        audit_log.push({
+            ts: new Date().toISOString(),
+            agent: 'RepairAgent',
+            message: `Remediation recommended: Apply ${suggested_repair.join(', ')}.`
+        })
+    }
+    
+    const rows_preview = rows.slice(0, 6)
+    
+    return {
+        datasetName,
+        columns,
+        row_count: rows.length,
+        metrics,
+        trust,
+        policy,
+        suggested_repair,
+        audit_log,
+        latency_ms: 50,
+        rows_preview
+    }
+}
+
+function runLocalRepair(csvText, actions, prevMetrics, datasetName) {
+    const { headers, rows } = parseCSV(csvText)
+    const columns = inferColumns(headers, rows)
+    
+    const repairResult = repairDataset(rows, columns, prevMetrics, actions)
+    
+    const newHeaders = repairResult.columns.map(c => c.name)
+    const csvLines = [newHeaders.join(',')]
+    repairResult.rows.forEach(r => {
+        csvLines.push(newHeaders.map(h => {
+            const val = r[h] ?? '';
+            return typeof val === 'string' && val.includes(',') ? `"${val}"` : val;
+        }).join(','))
+    })
+    const repaired_csv = csvLines.join('\n')
+    
+    const result = runLocalPipeline(repaired_csv, datasetName)
+    result.repaired_csv = repaired_csv
+    result.repair_log = repairResult.repairLog
+    
+    return result
 }
 
 // ---------- Sample Dataset ----------
@@ -458,7 +538,8 @@ async function runPipeline(csvText, datasetName) {
     const response = await fetch(`${backendUrl}/analyze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ csvText, datasetName })
+        body: JSON.stringify({ csvText, datasetName }),
+        signal: AbortSignal.timeout(55000)  // 55s: Render free tier cold-starts take up to 50s
     });
     if (!response.ok) {
         const err = await response.json();
@@ -475,39 +556,67 @@ async function handlePOST(request, pathParts) {
         let csvText = body.csvText, datasetName = body.datasetName || 'uploaded.csv'
         if (useSample) { const s = sampleDataset(); csvText = s.csvText; datasetName = s.name }
         if (!csvText) return NextResponse.json({ error: 'csvText required' }, { status: 400 })
-        const result = await runPipeline(csvText, datasetName)
+        
+        let result;
+        try {
+            result = await runPipeline(csvText, datasetName)
+        } catch (e) {
+            console.warn('Python backend evaluation failed or timed out. Falling back to local JavaScript simulation:', e)
+            result = runLocalPipeline(csvText, datasetName)
+        }
+        
         if (!result.narrative) {
             const narrative = await generateNarrative({ trust: result.trust.trust_score, decision: result.policy.decision, dataset: datasetName, dims: result.trust.dimension_scores, fairness_attr: result.metrics.fairness.protected_attribute, pii_count: result.metrics.privacy.pii_columns.length })
             result.narrative = narrative
         }
         const runId = uuidv4()
         result.run_id = runId
-        const db = await getDb()
-        await db.collection('runs').insertOne({ run_id: runId, csvText, ...result, created_at: new Date() })
+        // Save to DB if available (non-fatal — app works without MongoDB)
+        try {
+            const db = await getDb()
+            await db.collection('runs').insertOne({ run_id: runId, csvText, ...result, created_at: new Date() })
+        } catch (dbErr) {
+            console.warn('MongoDB unavailable, skipping persistence:', dbErr.message)
+        }
         return NextResponse.json(result)
     }
-    if (pathParts[0] === 'repair') {
+        if (pathParts[0] === 'repair') {
         const { run_id, actions } = body
         if (!run_id || !actions) return NextResponse.json({ error: 'run_id and actions required' }, { status: 400 })
-        const db = await getDb()
-        const prev = await db.collection('runs').findOne({ run_id })
-        if (!prev) return NextResponse.json({ error: 'run not found' }, { status: 404 })
         
-        const backendUrl = process.env.BACKEND_URL || 'http://localhost:8000';
-        const response = await fetch(`${backendUrl}/repair`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                csvText: prev.csvText,
-                actions: actions,
-                metrics: prev.metrics
-            })
-        });
-        if (!response.ok) {
-            const err = await response.json();
-            return NextResponse.json({ error: err.detail || 'Python backend repair failed.' }, { status: 500 })
+        // Try to load previous run from DB; fall back to body-supplied metrics if unavailable
+        let prev = body.prevResult || null
+        try {
+            const db = await getDb()
+            prev = await db.collection('runs').findOne({ run_id })
+        } catch (dbErr) {
+            console.warn('MongoDB unavailable for repair lookup:', dbErr.message)
         }
-        const result = await response.json()
+        if (!prev) return NextResponse.json({ error: 'run not found and no prevResult supplied' }, { status: 404 })
+        
+        let result;
+        try {
+            const backendUrl = process.env.BACKEND_URL || 'http://localhost:8000';
+            const response = await fetch(`${backendUrl}/repair`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    csvText: prev.csvText,
+                    actions: actions,
+                    metrics: prev.metrics
+                }),
+                signal: AbortSignal.timeout(55000)
+            });
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(err.detail || 'Python backend repair failed.');
+            }
+            result = await response.json()
+        } catch (e) {
+            console.warn('Python backend repair failed or timed out. Falling back to local JavaScript simulation:', e)
+            result = runLocalRepair(prev.csvText, actions, prev.metrics, prev.datasetName || 'repaired.csv')
+        }
+        
         const newCsv = result.repaired_csv
         delete result.repaired_csv
         
@@ -520,7 +629,13 @@ async function handlePOST(request, pathParts) {
             const narrative = await generateNarrative({ trust: result.trust.trust_score, previous_trust: prev.trust.trust_score, decision: result.policy.decision, applied: actions, improvement: result.trust.trust_score - prev.trust.trust_score })
             result.narrative = narrative
         }
-        await db.collection('runs').insertOne({ run_id: newRunId, csvText: newCsv, ...result, created_at: new Date() })
+        // Save to DB if available (non-fatal)
+        try {
+            const db = await getDb()
+            await db.collection('runs').insertOne({ run_id: newRunId, csvText: newCsv, ...result, created_at: new Date() })
+        } catch (dbErr) {
+            console.warn('MongoDB unavailable, skipping repair persistence:', dbErr.message)
+        }
         return NextResponse.json(result)
     }
     return NextResponse.json({ error: 'unknown endpoint' }, { status: 404 })
