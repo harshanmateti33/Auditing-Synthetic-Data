@@ -256,7 +256,7 @@ export default function Page() {
       setActiveAgent(finalIndex);
       setTimeout(() => {
         setResult(data);
-        setLastCsvText(csvText); // store for repair — avoids DB lookup
+        setLastCsvText(data._csvText || csvText); // prefer server-returned CSV (fixes sample dataset case)
         setHistory([{ ...data, iteration: 0 }]);
         setSelectedActions(data.suggested_repair || []);
         setPhase("done");

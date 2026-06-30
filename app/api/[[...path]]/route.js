@@ -571,6 +571,8 @@ async function handlePOST(request, pathParts) {
         }
         const runId = uuidv4()
         result.run_id = runId
+        // Return csvText to client so repair works without MongoDB (especially for sample datasets)
+        result._csvText = csvText
         // Save to DB if available (non-fatal — app works without MongoDB)
         try {
             const db = await getDb()
