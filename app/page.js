@@ -220,6 +220,7 @@ export default function Page() {
   const [history, setHistory] = useState([]); // for repair iterations
   const [selectedActions, setSelectedActions] = useState([]);
   const [uploadedName, setUploadedName] = useState(null);
+  const [lastCsvText, setLastCsvText] = useState(null); // kept for repair (no DB)
   const fileRef = useRef(null);
   const resultsRef = useRef(null);
 
@@ -255,6 +256,7 @@ export default function Page() {
       setActiveAgent(finalIndex);
       setTimeout(() => {
         setResult(data);
+        setLastCsvText(csvText); // store for repair — avoids DB lookup
         setHistory([{ ...data, iteration: 0 }]);
         setSelectedActions(data.suggested_repair || []);
         setPhase("done");
@@ -291,6 +293,8 @@ export default function Page() {
         body: JSON.stringify({
           run_id: result.run_id,
           actions: selectedActions,
+          // Send full previous result so the backend doesn't need MongoDB
+          prevResult: { ...result, csvText: lastCsvText },
         }),
       });
       const data = await res.json();
