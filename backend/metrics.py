@@ -3,6 +3,7 @@ import math
 import random
 import re
 import numpy as np
+import pandas as pd
 
 # Graceful GPU cuDF / cuML import with CPU pandas / scikit-learn fallback
 try:
@@ -33,15 +34,13 @@ OUTCOME_KW = ['target', 'outcome', 'label', 'approved', 'class', 'churn', 'defau
 
 def infer_columns(df):
     columns = []
-    # If it is a cuDF DataFrame, we can use to_pandas() for iteration or use cudf methods.
-    for col in df.columns:
-        series = df[col]
-        # Check type
-        if cudf.__name__ == 'cudf':
-            # cuDF series
-            is_numeric = np.issubdtype(series.dtype, np.number)
-        else:
-            is_numeric = np.issubdtype(series.dtype, np.number)
+    # Convert to pandas for type inspection so cuDF and pandas paths both work.
+    pdf = df.to_pandas() if hasattr(df, 'to_pandas') else df
+    for col in pdf.columns:
+        series = pdf[col]
+        # Use pandas-native checker: handles StringDtype, ArrowDtype, and all
+        # other pandas 2.0 extension types that np.issubdtype cannot interpret.
+        is_numeric = pd.api.types.is_numeric_dtype(series)
         columns.append({
             "name": col,
             "type": "numeric" if is_numeric else "categorical"
@@ -238,7 +237,8 @@ def agent_utility(df, columns):
     
     # Simple encoding for sklearn/cuml RF compatibility
     for col in X_raw.columns:
-        if X_raw[col].dtype == object or str(X_raw[col].dtype) == 'category':
+        # Use pandas-native check to cover object, StringDtype, CategoricalDtype, etc.
+        if not pd.api.types.is_numeric_dtype(X_raw[col]):
             X_raw[col] = X_raw[col].astype('category').cat.codes
         # fill nan
         X_raw[col] = X_raw[col].fillna(0)
